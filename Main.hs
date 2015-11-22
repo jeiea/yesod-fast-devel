@@ -9,6 +9,7 @@ import           Control.Monad                (forever)
 import           Control.Monad.STM            (atomically)
 import           Data.Text                    (isInfixOf, pack)
 import           System.Exit                  (exitFailure)
+import           System.FilePath.Glob
 import           System.FilePath.Posix        (takeBaseName)
 import           System.FSNotify              (Event (..), watchTree,
                                                withManager)
@@ -76,10 +77,15 @@ shouldReload event = not (or conditions)
                  , notInFile "flycheck_"
                  , notInPath ".stack-work"
                  , notInFile "stack.yaml"
+                 , notInGlob (compile "*.hi")
+                 , notInGlob (compile "**/*.hi")
+                 , notInGlob (compile "*.o")
+                 , notInGlob (compile "**/*.o")
                  , notInFile "devel-main-since"
                  ]
     notInPath t = t `isInfixOf` pack fp
     notInFile t = t `isInfixOf` pack (takeBaseName fp)
+    notInGlob pt = match pt fp
 
 reloadApplication :: TChan Event -> Event -> IO ()
 reloadApplication chan event = atomically (writeTChan chan event)
