@@ -5,15 +5,15 @@ import           Control.Concurrent           (forkIO, threadDelay)
 import           Control.Concurrent.STM.TChan (TChan, dupTChan, newTChan,
                                                readTChan, writeTChan)
 import           Control.Exception            (bracket)
-import           Control.Monad                (forever, void)
+import           Control.Monad                (forever)
 import           Control.Monad.STM            (atomically)
 import           Data.Text                    (isInfixOf, pack)
+import           System.Exit                  (exitFailure)
 import           System.FilePath.Posix        (takeBaseName)
 import           System.FSNotify              (Event (..), watchTree,
                                                withManager)
 import           System.IO                    (BufferMode (..), Handle,
-                                               hGetLine, hPutStrLn,
-                                               hSetBuffering)
+                                               hPutStrLn, hSetBuffering, stderr)
 import           System.Process
 
 main :: IO ()
@@ -35,19 +35,18 @@ replThread chan = do
     readChan <- atomically (dupTChan chan)
     bracket newRepl onError (onSuccess readChan)
   where
-    onError (_,_,_,process) = do
+    onError (_, _, _, process) = do
         interruptProcessGroupOf process
         threadDelay 100000
         terminateProcess process
         threadDelay 100000
         waitForProcess process
 
-    onSuccess readChan (Just replIn, mreplOut, _, _) = do
+    onSuccess readChan (Just replIn, _, _, _) = do
         hSetBuffering replIn LineBuffering
         threadDelay 1000000
         hPutStrLn replIn loadString
         hPutStrLn replIn startString
-        -- reloadBrowserOnBoot mreplOut
         forever $ do
             event <- atomically (readTChan readChan)
             putStrLn "-----------------------------"
@@ -55,16 +54,12 @@ replThread chan = do
             putStrLn "-----------------------------"
             hPutStrLn replIn loadString
             hPutStrLn replIn startString
+    onSuccess _ (_, _, _, _) = do
+        hPutStrLn stderr "Can't open GHCi's stdin"
+        exitFailure
 
     startString = "update"
     loadString = ":load app/DevelMain.hs"
-    -- reloadBrowserOnBoot Nothing = return ()
-    -- reloadBrowserOnBoot (Just replOut) = waitForServerBoot replOut >> reloadBrowser
-    waitForServerBoot stdout = do
-        l <- hGetLine stdout
-        if "Devel application launched" `isInfixOf` pack l
-            then return ()
-            else waitForServerBoot stdout
 
 shouldReload :: Event -> Bool
 shouldReload event = not (or conditions)
@@ -73,12 +68,6 @@ shouldReload event = not (or conditions)
         Added filePath _ -> filePath
         Modified filePath _ -> filePath
         Removed filePath _ -> filePath
-    -- p = case toText fp of
-    --       Left filePath -> filePath
-    --       Right filePath -> filePath
-    -- fn = case toText (filename fp) of
-    --         Left filePath -> filePath
-    --         Right filePath -> filePath
     conditions = [ notInPath ".git"
                  , notInPath "yesod-devel"
                  , notInPath "dist"
@@ -89,8 +78,8 @@ shouldReload event = not (or conditions)
                  , notInFile "stack.yaml"
                  , notInFile "devel-main-since"
                  ]
-    notInPath t = t `isInfixOf` (pack fp)
-    notInFile t = t `isInfixOf` (pack $ takeBaseName fp)
+    notInPath t = t `isInfixOf` pack fp
+    notInFile t = t `isInfixOf` pack (takeBaseName fp)
 
 reloadApplication :: TChan Event -> Event -> IO ()
 reloadApplication chan event = atomically (writeTChan chan event)
@@ -112,16 +101,3 @@ newProc cmd args = CreateProcess { cmdspec = RawCommand cmd args
                                  , create_group = True
                                  , delegate_ctlc = False
                                  }
-
--- browserSyncThread :: IO ()
--- browserSyncThread = do
---     putStrLn "Starting browser-sync..."
---     _ <- forkIO $ callCommand "browser-sync start --port 4000 --proxy localhost:3000"
---     putStrLn "browser-sync started at port 4000 proxying to localhost:3000"
-
--- reloadBrowser :: IO ()
--- reloadBrowser = do
---     putStrLn "Reloading browser..."
---     bracket (void $ callCommand "browser-sync reload --port 4000")
---         (const $ return ())
---         (const $ return ())
