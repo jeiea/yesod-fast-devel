@@ -8,6 +8,7 @@ import           Control.Exception            (bracket)
 import           Control.Monad                (forever)
 import           Control.Monad.STM            (atomically)
 import           Data.Text                    (isInfixOf, pack)
+import           System.Environment           (getArgs)
 import           System.Exit                  (exitFailure)
 import           System.FilePath.Glob
 import           System.FilePath.Posix        (takeBaseName)
@@ -21,7 +22,11 @@ main :: IO ()
 main = do
     chan <- atomically newTChan
     _ <- forkIO $ watchThread chan
-    _ <- replThread chan
+    as <- getArgs
+    let develMainPth = case as of
+            [] -> "app/DevelMain.hs"
+            a:_ -> a
+    _ <- replThread develMainPth chan
     return ()
 
 watchThread :: TChan Event -> IO ()
@@ -31,8 +36,8 @@ watchThread writeChan = withManager $ \mgr -> do
     -- sleep forever (until interrupted)
     forever $ threadDelay 1000000000
 
-replThread :: TChan Event -> IO ()
-replThread chan = do
+replThread :: FilePath -> TChan Event -> IO ()
+replThread develMainPth chan = do
     readChan <- atomically (dupTChan chan)
     bracket newRepl onError (onSuccess readChan)
   where
@@ -60,7 +65,7 @@ replThread chan = do
         exitFailure
 
     startString = "update"
-    loadString = ":load app/DevelMain.hs"
+    loadString = ":load " ++ develMainPth
 
 shouldReload :: Event -> Bool
 shouldReload event = not (or conditions)
