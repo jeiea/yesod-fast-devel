@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
@@ -5,11 +6,18 @@ import           Control.Concurrent           (forkIO, threadDelay)
 import           Control.Concurrent.STM.TChan (TChan, dupTChan, newTChan,
                                                readTChan, writeTChan)
 import           Control.Exception            (bracket)
-import           Control.Monad                (forever)
+import           Control.Monad                (forever, unless, when)
 import           Control.Monad.STM            (atomically)
+import qualified Data.ByteString.Lazy         as ByteString
+import           Data.Digest.Pure.MD5         (md5)
+import           Data.Maybe                   (isJust)
 import           Data.Text                    (isInfixOf, pack)
+import           Paths_yesod_fast_devel
+import           System.Directory             (copyFile, doesDirectoryExist,
+                                               findExecutable)
 import           System.Environment           (getArgs)
-import           System.Exit                  (exitFailure)
+import           System.Exit
+import           System.FilePath              (takeDirectory)
 import           System.FilePath.Glob
 import           System.FilePath.Posix        (takeBaseName)
 import           System.FSNotify              (Event (..), watchTree,
@@ -19,15 +27,65 @@ import           System.IO                    (BufferMode (..), Handle,
 import           System.Process
 
 main :: IO ()
-main = do
-    chan <- atomically newTChan
-    _ <- forkIO $ watchThread chan
-    as <- getArgs
-    let develMainPth = case as of
-            [] -> "app/DevelMain.hs"
-            a:_ -> a
-    _ <- replThread develMainPth chan
-    return ()
+main = getArgs >>= \case
+    ("init":develMainPth:_) -> initYesodFastDevel develMainPth
+    ("init":_) -> initYesodFastDevel "app/DevelMain.hs"
+    ("print-patched-main":_) ->
+        putStrLn =<< readFile =<< getDataFileName "PatchedDevelMain.hs"
+    (develMainPth:_) -> go develMainPth
+    [] -> go "app/DevelMain.hs"
+  where
+    go develMainPth = do
+        chan <- atomically newTChan
+        _ <- forkIO $ watchThread chan
+        _ <- forkIO browserSyncThread
+        _ <- replThread develMainPth chan
+        return ()
+
+initYesodFastDevel :: FilePath -> IO ()
+initYesodFastDevel develMainPth = do
+    verifyDirectory
+    verifyDevelMain
+    patchedDevelMain <- getDataFileName "PatchedDevelMain.hs"
+    copyFile patchedDevelMain develMainPth
+    putStrLn "Patched `DevelMain.hs`"
+    browserSyncPth <- findExecutable "browser-sync"
+    putStrLn "Make sure you have `foreign-store` on your cabal file"
+    when (not (isJust browserSyncPth)) $ do
+        putStrLn "Install `browser-sync` to have livereload at port 4000"
+    exitSuccess
+  where
+    verifyDirectory = do
+        let dir = takeDirectory develMainPth
+        putStrLn ("Verifying `" ++ dir ++ "` exists")
+        dexists <- doesDirectoryExist dir
+        unless dexists $ do
+            hPutStrLn stderr ("Directory `" ++ dir ++ "` not found")
+            exitFailure
+    verifyDevelMain = do
+        putStrLn "Verifying `DevelMain.hs` isn't modified"
+        userDevelMd5 <- md5 <$> ByteString.readFile develMainPth
+        originalDevelMd5 <- md5 <$>
+            (ByteString.readFile =<< getDataFileName "OriginalDevelMain.hs")
+        patchedDevelMd5 <- md5 <$>
+            (ByteString.readFile =<< getDataFileName "PatchedDevelMain.hs")
+
+        when (userDevelMd5 == patchedDevelMd5) $ do
+            putStrLn "DevelMain.hs is already patched"
+            exitSuccess
+        when (userDevelMd5 /= originalDevelMd5) $ do
+            hPutStrLn stderr "Found a weird DevelMain.hs on your project"
+            hPutStrLn stderr "Use `yesod-fast-devel print-patched-main`"
+            exitFailure
+
+browserSyncThread :: IO ()
+browserSyncThread = do
+    browserSyncPth <- findExecutable "browser-sync"
+    if (isJust browserSyncPth)
+       then callCommand cmd
+       else return ()
+  where
+    cmd = "browser-sync start --no-open --files=\"devel-main-since\" --proxy \"localhost:3000\" --port 4000"
 
 watchThread :: TChan Event -> IO ()
 watchThread writeChan = withManager $ \mgr -> do
@@ -81,6 +139,7 @@ shouldReload event = not (or conditions)
                  , notInPath ".cabal-sandbox"
                  , notInFile "flycheck_"
                  , notInPath ".stack-work"
+                 , notInGlob (compile "*.sqlite3-shm")
                  , notInFile "stack.yaml"
                  , notInGlob (compile "*.hi")
                  , notInGlob (compile "**/*.hi")

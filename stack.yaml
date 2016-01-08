@@ -18,4 +18,8 @@ extra-deps:
 - unix-compat-0.4.1.4
 - dlist-0.7.1.2
 - Glob-0.7.5
+- pureMD5-2.1.2.1
+- crypto-api-0.13.2
+- tagged-0.8.2
+- entropy-0.3.7
 resolver: ghc-7.10
