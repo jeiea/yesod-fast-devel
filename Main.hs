@@ -13,6 +13,7 @@ import           Data.Digest.Pure.MD5         (md5)
 import           Data.Maybe                   (isJust)
 import           Data.Text                    (isInfixOf, pack)
 import           Paths_yesod_fast_devel
+import           System.Console.ANSI
 import           System.Directory             (copyFile, doesDirectoryExist,
                                                findExecutable)
 import           System.Environment           (getArgs)
@@ -23,7 +24,8 @@ import           System.FilePath.Posix        (takeBaseName)
 import           System.FSNotify              (Event (..), watchTree,
                                                withManager)
 import           System.IO                    (BufferMode (..), Handle,
-                                               hPutStrLn, hSetBuffering, stderr)
+                                               hPutStrLn, hSetBuffering, stderr,
+                                               stdout)
 import           System.Process
 
 main :: IO ()
@@ -36,6 +38,8 @@ main = getArgs >>= \case
     [] -> go "app/DevelMain.hs"
   where
     go develMainPth = do
+        hSetBuffering stdout LineBuffering
+        hSetBuffering stderr LineBuffering
         chan <- atomically newTChan
         _ <- forkIO $ watchThread chan
         _ <- forkIO browserSyncThread
@@ -114,7 +118,9 @@ replThread develMainPth chan = do
         forever $ do
             event <- atomically (readTChan readChan)
             putStrLn "-----------------------------"
+            setSGR [ SetColor Foreground Vivid Yellow ]
             print event
+            setSGR [ Reset ]
             putStrLn "-----------------------------"
             hPutStrLn replIn loadString
             hPutStrLn replIn startString
@@ -139,8 +145,8 @@ shouldReload event = not (or conditions)
                  , notInPath ".cabal-sandbox"
                  , notInFile "flycheck_"
                  , notInPath ".stack-work"
-                 , notInGlob (compile "**/*.sqlite3-shm")
-                 , notInGlob (compile "*.sqlite3-shm")
+                 , notInGlob (compile "**/*.sqlite3-*")
+                 , notInGlob (compile "*.sqlite3-*")
                  , notInFile "stack.yaml"
                  , notInGlob (compile "*.hi")
                  , notInGlob (compile "**/*.hi")

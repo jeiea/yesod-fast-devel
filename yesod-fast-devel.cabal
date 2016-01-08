@@ -15,6 +15,7 @@ executable yesod-fast-devel
   default-extensions: OverloadedStrings, LambdaCase
   main-is:            Main.hs
   build-depends: Glob >= 0.7
+               , ansi-terminal
                , base >=4.7 && <5
                , bytestring >= 0.10.6.0
                , directory >= 1.2.2.0
