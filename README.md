@@ -5,8 +5,6 @@ Fast live-reloading for yesod applications.
 
 _Forked from [`fast-yesod-devel`](https://github.com/Codas/fast-yesod-devel)_
 
-_Hacky and with some unnecessary reloads atm_
-
 ## Install
 ```
 $ git clone git@github.com:haskellbr/yesod-fast-devel

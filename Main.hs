@@ -139,6 +139,7 @@ shouldReload event = not (or conditions)
                  , notInPath ".cabal-sandbox"
                  , notInFile "flycheck_"
                  , notInPath ".stack-work"
+                 , notInGlob (compile "**/*.sqlite3-shm")
                  , notInGlob (compile "*.sqlite3-shm")
                  , notInFile "stack.yaml"
                  , notInGlob (compile "*.hi")
