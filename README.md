@@ -20,5 +20,8 @@ $ stack install
 $ yesod-fast-devel
 ```
 
+## Example using Spock
+The [git-issues](https://github.com/yamadapc/git-issues) project shows how you can use this with Spock applications.
+
 ## License
 This code is published under the BSD-3 license.
