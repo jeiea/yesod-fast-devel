@@ -11,6 +11,8 @@ cabal-version:       >=1.10
 data-files:          PatchedDevelMain.hs
                    , OriginalDevelMain.hs
 
+tested-with: GHC >= 7.6
+
 executable yesod-fast-devel
   default-extensions: OverloadedStrings, LambdaCase
   main-is:            Main.hs
