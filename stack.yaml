@@ -23,4 +23,5 @@ extra-deps:
 - tagged-0.8.2
 - entropy-0.3.7
 - ansi-terminal-0.6.2.3
+- hinotify-0.3.8.1
 resolver: ghc-7.10
