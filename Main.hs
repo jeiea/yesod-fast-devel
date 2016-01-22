@@ -10,7 +10,7 @@ import           Control.Monad                (forever, unless, when)
 import           Control.Monad.STM            (atomically)
 import qualified Data.ByteString.Lazy         as ByteString
 import           Data.Digest.Pure.MD5         (md5)
-import           Data.Maybe                   (isJust)
+import           Data.Maybe                   (isJust, isNothing)
 import           Data.Text                    (isInfixOf, pack)
 import           Paths_yesod_fast_devel
 import           System.Console.ANSI
@@ -55,7 +55,7 @@ initYesodFastDevel develMainPth = do
     putStrLn "Patched `DevelMain.hs`"
     browserSyncPth <- findExecutable "browser-sync"
     putStrLn "Make sure you have `foreign-store` on your cabal file"
-    when (not (isJust browserSyncPth)) $ do
+    when (isNothing browserSyncPth) $
         putStrLn "Install `browser-sync` to have livereload at port 4000"
     exitSuccess
   where
@@ -85,9 +85,8 @@ initYesodFastDevel develMainPth = do
 browserSyncThread :: IO ()
 browserSyncThread = do
     browserSyncPth <- findExecutable "browser-sync"
-    if (isJust browserSyncPth)
-       then callCommand cmd
-       else return ()
+    when (isJust browserSyncPth) $
+       callCommand cmd
   where
     cmd = "browser-sync start --no-open --files=\"devel-main-since\" --proxy \"localhost:3000\" --port 4000"
 
