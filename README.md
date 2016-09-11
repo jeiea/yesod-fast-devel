@@ -12,7 +12,7 @@ $ stack install
 ```
 
 ## Usage
-- Have `browser-sync` installed
+- Have [browser-sync](https://www.browsersync.io/) installed (`npm install -g browser-sync`)
 - Have `foreign-store` on the cabal file (maybe [`cabal-add
   foreign-store`](https://github.com/yamadapc/cabal-add))
 
