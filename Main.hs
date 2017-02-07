@@ -88,12 +88,8 @@ getNoSpaceHash path = withFile path ReadMode handler where
     return $! md5 $ L.filter (not . isSpace) bs
 
 browserSyncThread :: IO ()
-browserSyncThread = do
-    browserSyncPth <- findExecutable "browser-sync"
-    when (isJust browserSyncPth) $
-       callCommand cmd
-  where
-    cmd = "browser-sync start --no-open --files=\"devel-main-since\" --proxy \"localhost:3000\" --port 4000"
+browserSyncThread = callCommand cmd where
+  cmd = "browser-sync start --no-open --files=\"devel-main-since\" --proxy \"localhost:3000\" --port 4000"
 
 watchThread :: TChan Event -> IO ()
 watchThread writeChan = withManager $ \mgr -> do
