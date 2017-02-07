@@ -8,8 +8,9 @@ import           Control.Concurrent.STM.TChan (TChan, dupTChan, newTChan,
 import           Control.Exception            (bracket)
 import           Control.Monad                (forever, unless, when)
 import           Control.Monad.STM            (atomically)
-import qualified Data.ByteString.Lazy         as ByteString
-import           Data.Digest.Pure.MD5         (md5)
+import qualified Data.ByteString.Lazy.Char8   as L
+import           Data.Char                    (isSpace)
+import           Data.Digest.Pure.MD5         (md5, MD5Digest)
 import           Data.Maybe                   (isJust, isNothing)
 import           Data.Text                    (isInfixOf, pack)
 import           Paths_yesod_fast_devel
@@ -25,7 +26,7 @@ import           System.FSNotify              (Event (..), watchTree,
                                                withManager)
 import           System.IO                    (BufferMode (..), Handle,
                                                hPutStrLn, hSetBuffering, stderr,
-                                               stdout)
+                                               stdout, withFile, IOMode(ReadMode))
 import           System.Process
 
 main :: IO ()
@@ -68,11 +69,9 @@ initYesodFastDevel develMainPth = do
             exitFailure
     verifyDevelMain = do
         putStrLn "Verifying `DevelMain.hs` isn't modified"
-        userDevelMd5 <- md5 <$> ByteString.readFile develMainPth
-        originalDevelMd5 <- md5 <$>
-            (ByteString.readFile =<< getDataFileName "OriginalDevelMain.hs")
-        patchedDevelMd5 <- md5 <$>
-            (ByteString.readFile =<< getDataFileName "PatchedDevelMain.hs")
+        userDevelMd5     <- getNoSpaceHash develMainPth
+        originalDevelMd5 <- getNoSpaceHash =<< getDataFileName "OriginalDevelMain.hs"
+        patchedDevelMd5  <- getNoSpaceHash =<< getDataFileName "PatchedDevelMain.hs"
 
         when (userDevelMd5 == patchedDevelMd5) $ do
             putStrLn "DevelMain.hs is already patched"
@@ -81,6 +80,12 @@ initYesodFastDevel develMainPth = do
             hPutStrLn stderr "Found a weird DevelMain.hs on your project"
             hPutStrLn stderr "Use `yesod-fast-devel print-patched-main`"
             exitFailure
+
+getNoSpaceHash :: FilePath -> IO MD5Digest
+getNoSpaceHash path = withFile path ReadMode handler where
+  handler handle = do
+    bs <- L.hGetContents handle
+    return $! md5 $ L.filter (not . isSpace) bs
 
 browserSyncThread :: IO ()
 browserSyncThread = do
