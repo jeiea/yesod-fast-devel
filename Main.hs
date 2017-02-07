@@ -167,13 +167,7 @@ newRepl = createProcess $ newProc "stack" [ "ghci"
                                           ]
 
 newProc :: FilePath -> [String] -> CreateProcess
-newProc cmd args = CreateProcess { cmdspec = RawCommand cmd args
-                                 , cwd = Nothing
-                                 , env = Nothing
-                                 , std_in = CreatePipe
-                                 , std_out = Inherit
-                                 , std_err = Inherit
-                                 , close_fds = False
-                                 , create_group = True
-                                 , delegate_ctlc = False
-                                 }
+newProc cmd args = (proc cmd args)
+    { std_in = CreatePipe
+    , create_group = True
+    }
