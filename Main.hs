@@ -161,8 +161,9 @@ reloadApplication :: TChan Event -> Event -> IO ()
 reloadApplication chan event = atomically (writeTChan chan event)
 
 newRepl :: IO (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
-newRepl = createProcess $ newProc "stack" [ "ghci"
-                                          , "--ghc-options"
+newRepl = createProcess $ newProc "stack" [ "repl"
+                                          , "--no-package-hiding"
+                                          , "--ghci-options"
                                           , "-O0 -fobject-code"
                                           ]
 
